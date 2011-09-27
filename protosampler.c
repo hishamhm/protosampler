@@ -363,7 +363,7 @@ static void sig_handler(int dummy)
 
 int main(int argc, char *argv[])
 {
-	static char short_options[] = "hVlLp:a";
+	static char short_options[] = "hVlLp:ac:";
 	static struct option long_options[] = {
 		{"help", 0, NULL, 'h'},
 		{"version", 0, NULL, 'V'},
@@ -371,12 +371,14 @@ int main(int argc, char *argv[])
 		{"list-rawmidis", 0, NULL, 'L'},
 		{"port", 1, NULL, 'p'},
 		{"active-sensing", 0, NULL, 'a'},
+		{"channel", 1, NULL, 'c'},
 		{ }
 	};
 	int c, err, ok = 0;
 	int do_rawmidi_list = 0;
 	int do_device_list = 0;
 	int ignore_active_sensing = 1;
+	int channel = 12;
 
 	while ((c = getopt_long(argc, argv, short_options,
 		     		long_options, NULL)) != -1) {
@@ -398,6 +400,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'a':
 			ignore_active_sensing = 0;
+			break;
+		case 'c':
+			channel = atoi(optarg);
 			break;
 		default:
 			error("Try `protosampler --help' for more information.");
@@ -478,6 +483,11 @@ int main(int argc, char *argv[])
 
 			for (i = 0; i < length; ++i)
 				print_byte(buf[i]);
+			if (buf[0] == 0xc0 + (channel-1)) {
+				printf("\n");
+				printf("Received PC for channel %d\n", channel);
+			}
+				
 			fflush(stdout);
 		}
 		if (isatty(fileno(stdout)))
