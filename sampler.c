@@ -54,7 +54,7 @@ static void error(const char *format, ...)
 static void usage(void)
 {
 	printf(
-		"Usage: amidi options\n"
+		"Usage: protosampler options\n"
 		"\n"
 		"-h, --help             this help\n"
 		"-V, --version          print current version\n"
@@ -400,7 +400,7 @@ int main(int argc, char *argv[])
 			ignore_active_sensing = 0;
 			break;
 		default:
-			error("Try `amidi --help' for more information.");
+			error("Try `protosampler --help' for more information.");
 			return 1;
 		}
 	}
