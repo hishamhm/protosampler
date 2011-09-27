@@ -1,8 +1,8 @@
 /*
- *  amidi.c - read from/write to RawMIDI ports
+ *  sampler.c
  *
+ *  based on amidi.c from alsa-utils 1.0.13
  *  Copyright (c) Clemens Ladisch <clemens@ladisch.de>
- *
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -37,19 +37,9 @@
 #include "aconfig.h"
 #include "version.h"
 
-static int do_device_list, do_rawmidi_list;
 static char *port_name = "default";
-static char *send_file_name;
-static char *receive_file_name;
-static char *send_hex;
-static char *send_data;
-static int send_data_length;
-static int receive_file;
-static int dump;
-static int timeout;
 static int stop;
 static snd_rawmidi_t *input, **inputp;
-static snd_rawmidi_t *output, **outputp;
 
 static void error(const char *format, ...)
 {
@@ -71,12 +61,6 @@ static void usage(void)
 		"-l, --list-devices     list all hardware ports\n"
 		"-L, --list-rawmidis    list all RawMIDI definitions\n"
 		"-p, --port=name        select port by name\n"
-		"-s, --send=file        send the contents of a (.syx) file\n"
-		"-r, --receive=file     write received data into a file\n"
-		"-S, --send-hex=\"...\"   send hexadecimal bytes\n"
-		"-d, --dump             print received data as hexadecimal bytes\n"
-		"-t, --timeout=seconds  exits when no data has been received\n"
-		"                       for the specified duration\n"
 		"-a, --active-sensing   don't ignore active sensing bytes\n");
 }
 
@@ -284,40 +268,6 @@ static void rawmidi_list(void)
 	snd_output_close(output);
 }
 
-static void load_file(void)
-{
-	int fd;
-	off_t length;
-
-	fd = open(send_file_name, O_RDONLY);
-	if (fd == -1) {
-		error("cannot open %s - %s", send_file_name, strerror(errno));
-		return;
-	}
-	length = lseek(fd, 0, SEEK_END);
-	if (length == (off_t)-1) {
-		error("cannot determine length of %s: %s", send_file_name, strerror(errno));
-		goto _error;
-	}
-	send_data = my_malloc(length);
-	lseek(fd, 0, SEEK_SET);
-	if (read(fd, send_data, length) != length) {
-		error("cannot read from %s: %s", send_file_name, strerror(errno));
-		goto _error;
-	}
-	if (length >= 4 && !memcmp(send_data, "MThd", 4)) {
-		error("%s is a Standard MIDI File; use aplaymidi to send it", send_file_name);
-		goto _error;
-	}
-	send_data_length = length;
-	goto _exit;
-_error:
-	free(send_data);
-	send_data = NULL;
-_exit:
-	close(fd);
-}
-
 static int hex_value(char c)
 {
 	if ('0' <= c && c <= '9')
@@ -328,40 +278,6 @@ static int hex_value(char c)
 		return c - 'a' + 10;
 	error("invalid character %c", c);
 	return -1;
-}
-
-static void parse_data(void)
-{
-	const char *p;
-	int i, value;
-
-	send_data = my_malloc(strlen(send_hex)); /* guesstimate */
-	i = 0;
-	value = -1; /* value is >= 0 when the first hex digit of a byte has been read */
-	for (p = send_hex; *p; ++p) {
-		int digit;
-		if (isspace((unsigned char)*p)) {
-			if (value >= 0) {
-				send_data[i++] = value;
-				value = -1;
-			}
-			continue;
-		}
-		digit = hex_value(*p);
-		if (digit < 0) {
-			send_data = NULL;
-			return;
-		}
-		if (value < 0) {
-			value = digit;
-		} else {
-			send_data[i++] = (value << 4) | digit;
-			value = -1;
-		}
-	}
-	if (value >= 0)
-		send_data[i++] = value;
-	send_data_length = i;
 }
 
 /*
@@ -445,44 +361,22 @@ static void sig_handler(int dummy)
 	stop = 1;
 }
 
-void add_send_hex_data(const char *str)
-{
-	int length;
-	char *s;
-
-	length = (send_hex ? strlen(send_hex) + 1 : 0) + strlen(str) + 1;
-	s = my_malloc(length);
-	if (send_hex) {
-		strcpy(s, send_hex);
-		strcat(s, " ");
-	} else {
-		s[0] = '\0';
-	}
-	strcat(s, str);
-	free(send_hex);
-	send_hex = s;
-}
-
 int main(int argc, char *argv[])
 {
-	static char short_options[] = "hVlLp:s:r:S::dt:a";
+	static char short_options[] = "hVlLp:a";
 	static struct option long_options[] = {
 		{"help", 0, NULL, 'h'},
 		{"version", 0, NULL, 'V'},
 		{"list-devices", 0, NULL, 'l'},
 		{"list-rawmidis", 0, NULL, 'L'},
 		{"port", 1, NULL, 'p'},
-		{"send", 1, NULL, 's'},
-		{"receive", 1, NULL, 'r'},
-		{"send-hex", 2, NULL, 'S'},
-		{"dump", 0, NULL, 'd'},
-		{"timeout", 1, NULL, 't'},
 		{"active-sensing", 0, NULL, 'a'},
 		{ }
 	};
 	int c, err, ok = 0;
+	int do_rawmidi_list = 0;
+	int do_device_list = 0;
 	int ignore_active_sensing = 1;
-	int do_send_hex = 0;
 
 	while ((c = getopt_long(argc, argv, short_options,
 		     		long_options, NULL)) != -1) {
@@ -502,23 +396,6 @@ int main(int argc, char *argv[])
 		case 'p':
 			port_name = optarg;
 			break;
-		case 's':
-			send_file_name = optarg;
-			break;
-		case 'r':
-			receive_file_name = optarg;
-			break;
-		case 'S':
-			do_send_hex = 1;
-			if (optarg)
-				add_send_hex_data(optarg);
-			break;
-		case 'd':
-			dump = 1;
-			break;
-		case 't':
-			timeout = atoi(optarg);
-			break;
 		case 'a':
 			ignore_active_sensing = 0;
 			break;
@@ -527,19 +404,9 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 	}
-	if (do_send_hex) {
-		/* data for -S can be specified as multiple arguments */
-		if (!send_hex && !argv[optind]) {
-			error("Please specify some data for --send-hex.");
-			return 1;
-		}
-		for (; argv[optind]; ++optind)
-			add_send_hex_data(argv[optind]);
-	} else {
-		if (argv[optind]) {
-			error("%s is not an option.", argv[optind]);
-			return 1;
-		}
+	if (argv[optind]) {
+		error("%s is not an option.", argv[optind]);
+		return 1;
 	}
 
 	if (do_rawmidi_list)
@@ -548,15 +415,6 @@ int main(int argc, char *argv[])
 		device_list();
 	if (do_rawmidi_list || do_device_list)
 		return 0;
-
-	if (!send_file_name && !receive_file_name && !send_hex && !dump) {
-		error("Please specify at least one of --send, --receive, --send-hex, or --dump.");
-		return 1;
-	}
-	if (send_file_name && send_hex) {
-		error("--send and --send-hex cannot be specified at the same time.");
-		return 1;
-	}
 
 	if (send_file_name)
 		load_file();
@@ -575,14 +433,7 @@ int main(int argc, char *argv[])
 		receive_file = -1;
 	}
 
-	if (receive_file_name || dump)
-		inputp = &input;
-	else
-		inputp = NULL;
-	if (send_data)
-		outputp = &output;
-	else
-		outputp = NULL;
+	inputp = &input;
 
 	if ((err = snd_rawmidi_open(inputp, outputp, port_name, 0)) < 0) {
 		error("cannot open port \"%s\": %s", port_name, snd_strerror(err));
@@ -603,7 +454,6 @@ int main(int argc, char *argv[])
 		int npfds, time = 0;
 		struct pollfd *pfds;
 
-		timeout *= 1000;
 		snd_rawmidi_nonblock(input, 1);
 		npfds = snd_rawmidi_poll_descriptors_count(input);
 		pfds = alloca(npfds * sizeof(struct pollfd));
@@ -623,8 +473,6 @@ int main(int argc, char *argv[])
 			}
 			if (err == 0) {
 				time += 200;
-				if (timeout && time >= timeout)
-					break;
 				continue;
 			}
 			if ((err = snd_rawmidi_poll_descriptors_revents(input, pfds, npfds, &revents)) < 0) {
@@ -652,11 +500,10 @@ int main(int argc, char *argv[])
 			time = 0;
 			if (receive_file != -1)
 				write(receive_file, buf, length);
-			if (dump) {
-				for (i = 0; i < length; ++i)
-					print_byte(buf[i]);
-				fflush(stdout);
-			}
+
+			for (i = 0; i < length; ++i)
+				print_byte(buf[i]);
+			fflush(stdout);
 		}
 		if (isatty(fileno(stdout)))
 			printf("\n%d bytes read\n", read);
