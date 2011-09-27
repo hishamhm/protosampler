@@ -1,3 +1,8 @@
 Hisham Muhammad
+
 based on amidi.c from alsa-utils 1.0.13
 by Clemens Ladisch <clemens@ladisch.de>
+
+based on aplay.c from alsa-utils 1.0.13
+by Jaroslav Kysela <perex@suse.cz>
+Based on vplay program by Michael Beck
