@@ -34,12 +34,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <alsa/asoundlib.h>
-#include "aconfig.h"
-#include "version.h"
+#include "config.h"
 
 static char *port_name = "default";
 static int stop;
 static snd_rawmidi_t *input, **inputp;
+static snd_rawmidi_t *output, **outputp;
 
 static void error(const char *format, ...)
 {
@@ -66,7 +66,7 @@ static void usage(void)
 
 static void version(void)
 {
-	puts("amidi version " SND_UTIL_VERSION_STR);
+	puts("protosampler version " VERSION);
 }
 
 static void *my_malloc(size_t size)
@@ -416,23 +416,6 @@ int main(int argc, char *argv[])
 	if (do_rawmidi_list || do_device_list)
 		return 0;
 
-	if (send_file_name)
-		load_file();
-	else if (send_hex)
-		parse_data();
-	if ((send_file_name || send_hex) && !send_data)
-		return 1;
-
-	if (receive_file_name) {
-		receive_file = creat(receive_file_name, 0666);
-		if (receive_file == -1) {
-			error("cannot create %s: %s", receive_file_name, strerror(errno));
-			return -1;
-		}
-	} else {
-		receive_file = -1;
-	}
-
 	inputp = &input;
 
 	if ((err = snd_rawmidi_open(inputp, outputp, port_name, 0)) < 0) {
@@ -442,12 +425,6 @@ int main(int argc, char *argv[])
 
 	if (inputp)
 		snd_rawmidi_read(input, NULL, 0); /* trigger reading */
-
-	if (send_data &&
-	    ((err = snd_rawmidi_write(output, send_data, send_data_length))) < 0) {
-		error("cannot send data: %s", snd_strerror(err));
-		goto _exit;
-	}
 
 	if (inputp) {
 		int read = 0;
@@ -498,8 +475,6 @@ int main(int argc, char *argv[])
 				continue;
 			read += length;
 			time = 0;
-			if (receive_file != -1)
-				write(receive_file, buf, length);
 
 			for (i = 0; i < length; ++i)
 				print_byte(buf[i]);
@@ -516,7 +491,5 @@ _exit:
 	if (outputp)
 		snd_rawmidi_close(output);
 _exit2:
-	if (receive_file != -1)
-		close(receive_file);
 	return !ok;
 }
