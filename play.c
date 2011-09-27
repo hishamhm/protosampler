@@ -323,19 +323,16 @@ static void signal_handler(int sig)
 }
 
 enum {
-	OPT_VERSION = 1,
-	OPT_PERIOD_SIZE,
+	OPT_PERIOD_SIZE = 1,
 	OPT_BUFFER_SIZE
 };
 
-/*
-int main(int argc, char *argv[])
+int do_play(int argc, char *argv[])
 {
 	int option_index;
 	char *short_options = "hnlLD:qt:c:f:r:d:s:MNF:A:R:T:B:vIPC";
 	static struct option long_options[] = {
 		{"help", 0, 0, 'h'},
-		{"version", 0, 0, OPT_VERSION},
 		{"list-devnames", 0, 0, 'n'},
 		{"list-devices", 0, 0, 'l'},
 		{"list-pcms", 0, 0, 'L'},
@@ -401,9 +398,6 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'h':
 			usage(command);
-			return 0;
-		case OPT_VERSION:
-			version();
 			return 0;
 		case 'n':
 			do_names_list = 1;
@@ -614,7 +608,6 @@ int main(int argc, char *argv[])
 	snd_config_update_free_global();
 	return EXIT_SUCCESS;
 }
-*/
 
 /*
  * Safe read (for pipes)
