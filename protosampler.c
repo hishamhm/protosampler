@@ -441,6 +441,8 @@ int main(int argc, char *argv[])
 		pfds = alloca(npfds * sizeof(struct pollfd));
 		snd_rawmidi_poll_descriptors(input, pfds, npfds);
 		signal(SIGINT, sig_handler);
+		char last_pc_channel = -1;
+		char last_pc_value = -1;
 		for (;;) {
 			unsigned char buf[256];
 			int i, length;
@@ -483,12 +485,21 @@ int main(int argc, char *argv[])
 
 			for (i = 0; i < length; ++i)
 				print_byte(buf[i]);
-			if (buf[0] == 0xc0 + (channel-1)) {
-				printf("\n");
-				printf("Received PC for channel %d\n", channel);
-				char cmd[256];
-				snprintf(cmd, sizeof(cmd)-1, "aplay samples/%d.wav", buf[1] + 1);
-				system(cmd);
+			char cmd = buf[0];
+			if (cmd >= 0xc0 && cmd <= 0xcf) { // if program change
+				char pc_value = buf[1];
+				if (buf[0] == 0xc0 + (channel-1)) {
+					if (last_pc_channel == cmd && last_pc_value == pc_value) {
+						printf("\nIgnoring repeated command for channel %d\n", channel);
+					} else {
+						printf("\nReceived PC for channel %d\n", channel);
+						char cmd[256];
+						snprintf(cmd, sizeof(cmd)-1, "aplay samples/%d.wav", pc_value + 1);
+						system(cmd);
+					}
+				}
+				last_pc_channel = cmd;
+				last_pc_value = pc_value;
 			}
 				
 			fflush(stdout);
