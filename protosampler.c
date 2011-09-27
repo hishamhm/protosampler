@@ -486,9 +486,9 @@ int main(int argc, char *argv[])
 			if (buf[0] == 0xc0 + (channel-1)) {
 				printf("\n");
 				printf("Received PC for channel %d\n", channel);
-				char filename[128];
-				snprintf(filename, sizeof(filename)-1, "samples/%d.wav", buf[1] + 1);
-				
+				char cmd[256];
+				snprintf(cmd, sizeof(cmd)-1, "aplay samples/%d.wav", buf[1] + 1);
+				system(cmd);
 			}
 				
 			fflush(stdout);
