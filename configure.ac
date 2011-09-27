@@ -1,8 +1,8 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.59)
-AC_INIT(sampler.c)
+AC_INIT(protosampler.c)
 AC_PREFIX_DEFAULT(/usr/local)
-AM_INIT_AUTOMAKE(sampler, 0.1)
+AM_INIT_AUTOMAKE(protosampler, 0.1)
 
 dnl Checks for programs.
 
