@@ -45,10 +45,11 @@
 #include <sys/time.h>
 #include <sys/signal.h>
 #include <asm/byteorder.h>
-#include "aconfig.h"
-#include "gettext.h"
+#include "config.h"
 #include "formats.h"
-#include "version.h"
+
+#define N_(x) x
+#define _(x) x
 
 #ifndef LLONG_MAX
 #define LLONG_MAX    9223372036854775807LL
@@ -297,11 +298,6 @@ static void pcm_list(void)
 	snd_output_close(out);
 }
 
-static void version(void)
-{
-	printf("%s: version " SND_UTIL_VERSION_STR " by Jaroslav Kysela <perex@suse.cz>\n", command);
-}
-
 static void signal_handler(int sig)
 {
 	if (verbose==2)
@@ -332,6 +328,7 @@ enum {
 	OPT_BUFFER_SIZE
 };
 
+/*
 int main(int argc, char *argv[])
 {
 	int option_index;
@@ -617,6 +614,7 @@ int main(int argc, char *argv[])
 	snd_config_update_free_global();
 	return EXIT_SUCCESS;
 }
+*/
 
 /*
  * Safe read (for pipes)
@@ -1928,7 +1926,7 @@ static void header(int rtype, char *name)
 			name = (stream == SND_PCM_STREAM_PLAYBACK) ? "stdout" : "stdin";
 		fprintf(stderr, "%s %s '%s' : ",
 			(stream == SND_PCM_STREAM_PLAYBACK) ? _("Playing") : _("Recording"),
-			gettext(fmt_rec_table[rtype].what),
+			fmt_rec_table[rtype].what,
 			name);
 		fprintf(stderr, "%s, ", snd_pcm_format_description(hwparams.format));
 		fprintf(stderr, _("Rate %d Hz, "), hwparams.rate);
